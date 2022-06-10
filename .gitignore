@@ -1,0 +1,10 @@
+.idea
+**/*/target
+**/*/logs
+*.iml
+**/*/pid
+*.log
+*.DS_Store
+logs
+pid
+jar
