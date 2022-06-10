@@ -25,6 +25,7 @@ public class Kindle {
 
     private static final String USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/1AE148";
 
+    private static final String AZw3_FORMAT = ".azw3";
     private static final String PAYLOAD_URL = "https://www.amazon.cn/hz/mycd/ajax";
     private static final String DOWNLOAD_URL = "https://cde-ta-g7g.amazon.com/FionaCDEServiceEngine/FSDownloadContent?type=EBOK&key=%s&fsn=%s&device_type=%s&customerId=%s&authPool=AmazonCN";
 
@@ -67,7 +68,10 @@ public class Kindle {
                     continue;
                 }
 
-                String fileName = book.title + ".azw3";
+                String fileName = book.title;
+                if (!fileName.endsWith(AZw3_FORMAT) ) {
+                    fileName += AZw3_FORMAT;
+                }
                 try (InputStream in = conn.getInputStream()) {
                     long length = Files.copy(in, Paths.get(fileName));
                     System.out.println("download " + fileName + " done. " + length + " bytes");
