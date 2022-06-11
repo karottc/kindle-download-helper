@@ -95,6 +95,11 @@ public class Kindle {
 
         DeviceRsp deviceRsp = gson.fromJson(rspStr, DeviceRsp.class);
 
+        if (!deviceRsp.success || (deviceRsp.error != null && deviceRsp.error.length() > 0)) {
+            System.out.println("get device error.[" + rspStr + "]");
+            System.exit(0);
+        }
+
         List<DeviceItem> devices = deviceRsp.GetDevices.devices;
         if (devices == null) {
             System.out.println("没有可用的设备~");
@@ -177,8 +182,8 @@ public class Kindle {
         String csrfToken = "";
         String cookieFile = "";
         Kindle kindle = new Kindle(csrfToken, cookieFile);
-//        System.out.println(gson.toJson(kindle.getDevices()) );
+        System.out.println(gson.toJson(kindle.getDevices()) );
 //        System.out.println(kindle.getAllBooks().size() );
-        kindle.downloadBooks();
+//        kindle.downloadBooks();
     }
 }
