@@ -16,6 +16,10 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author karottc@gmail.com
@@ -35,11 +39,13 @@ public class Kindle {
 
     private String csrfToken = "";
     private String cookie = "";
+    private String outPath = "";
 
-    public Kindle(String csrfToken, String cookieFile) {
+    public Kindle(String csrfToken, String cookieFile, String outPath) {
         try {
             this.csrfToken = csrfToken;
-            this.cookie = Files.readString(Paths.get(cookieFile));;
+            this.cookie = Files.readString(Paths.get(cookieFile));
+            this.outPath = outPath;
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(-1);
@@ -50,12 +56,30 @@ public class Kindle {
     public void downloadBooks() {
         DeviceItem device = getDevices();
         List<BookItem> books = getAllBooks();
-        downloadOneBook(books.get(0), device);
+        int allNum = books.size();
+        AtomicInteger count = new AtomicInteger(0);
+
+        ExecutorService executorService = Executors.newFixedThreadPool(20);
+
+        books.forEach(book -> {
+            executorService.execute(() -> downloadOneBook(book, device, count, allNum) );
+        });
+
+        // 等待所有子线程结束
+        try {
+            executorService.shutdown();
+            executorService.awaitTermination(300, TimeUnit.HOURS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("All Done.");
     }
 
-    private void downloadOneBook(BookItem book, DeviceItem device) {
+    private void downloadOneBook(BookItem book, DeviceItem device, AtomicInteger count, int allNum) {
+
+        System.out.println("start download file:" + book.title);
+
         String url = DOWNLOAD_URL.formatted(book.asin, device.deviceSerialNumber, device.deviceType, device.customerId);
-        System.out.println(url);
 
         try {
             do {
@@ -73,8 +97,13 @@ public class Kindle {
                     fileName += AZW3_FORMAT;
                 }
                 try (InputStream in = conn.getInputStream()) {
-                    long length = Files.copy(in, Paths.get(fileName));
-                    System.out.println("download " + fileName + " done. " + length + " bytes");
+                    long length = Files.copy(in, Paths.get(outPath + "/" + fileName));
+
+                    float fileSize = ((float) length) / (1024 * 1024);
+
+                    int c = count.incrementAndGet();
+                    String msg = "[%s] download %s done. %s M".formatted(c+"/"+allNum, fileName, fileSize);
+                    System.out.println(msg);
                 }
                 break;
             } while (true);
@@ -95,7 +124,7 @@ public class Kindle {
 
         DeviceRsp deviceRsp = gson.fromJson(rspStr, DeviceRsp.class);
 
-        if (!deviceRsp.success || (deviceRsp.error != null && deviceRsp.error.length() > 0)) {
+        if (deviceRsp.error != null && deviceRsp.error.length() > 0) {
             System.out.println("get device error.[" + rspStr + "]");
             System.exit(0);
         }
@@ -176,14 +205,5 @@ public class Kindle {
             e.printStackTrace();
         }
         return null;
-    }
-
-    public static void main(String[] args) throws IOException {
-        String csrfToken = "";
-        String cookieFile = "";
-        Kindle kindle = new Kindle(csrfToken, cookieFile);
-        System.out.println(gson.toJson(kindle.getDevices()) );
-//        System.out.println(kindle.getAllBooks().size() );
-//        kindle.downloadBooks();
     }
 }
